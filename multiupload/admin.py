@@ -8,8 +8,7 @@ import json
 
 from django.contrib import admin
 from django.shortcuts import render, get_object_or_404
-from django.conf.urls import patterns,url
-from django.core.urlresolvers import reverse
+from django.urls import path, reverse
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 
@@ -104,21 +103,28 @@ class MultiUploadAdmin(admin.ModelAdmin):
         return '%s_%s_multiupload_form' % (app_name, self.get_model_name())
 
     def get_urls(self, *args, **kwargs):
-        multi_urls = patterns('')
+        from functools import partial, reduce, update_wrapper
+        def wrap(view):
+            def wrapper(*args, **kwargs):
+                return self.admin_site.admin_view(view)(*args, **kwargs)
+            wrapper.model_admin = self
+            return update_wrapper(wrapper, view)
+
+        multi_urls = []
         if self.multiupload_list:
-            multi_urls += patterns('',
-                url(r'^multiupload/$',
-                    self.admin_site.admin_view(self.admin_upload_view),
-                    name=self.get_multiupload_list_view_name())
-            )
+            multi_urls += [path(
+                'multiupload/',
+                wrap(self.admin_site.admin_view(self.admin_upload_view)),
+                name=self.get_multiupload_list_view_name()
+            )]
         if self.multiupload_form:
-            multi_urls += patterns('',
-                url(r'^(?P<id>\d+)/multiupload/$',
-                    self.admin_site.admin_view(self.admin_upload_view),
-                    name=self.get_multiupload_form_view_name()),
-            )
-        return multi_urls + super(MultiUploadAdmin, self).get_urls(*args,
-                                                                   **kwargs)
+            multi_urls += [path(
+                '<pk>/multiupload/',
+                wrap(self.admin_site.admin_view(self.admin_upload_view)),
+                name=self.get_multiupload_form_view_name()
+            )]
+        urls = multi_urls + super().get_urls(*args, **kwargs)
+        return urls
 
     def process_uploaded_file(self, uploaded, object, request):
         '''
@@ -152,11 +158,13 @@ class MultiUploadAdmin(admin.ModelAdmin):
 
     @csrf_exempt
     # @user_passes_test(lambda u: u.is_staff)
-    def admin_upload_view(self, request, id=None):
-        if id:
-            object = self.get_object(request, id)
+    def admin_upload_view(self, request, pk=None):
+        if pk:
+            object = self.get_object(request, pk)
         else:
             object = None
+
+        id = pk
         if request.method == 'POST':    # POST data
             if not ("f" in request.GET.keys()):  # upload file
                 if not request.FILES:
