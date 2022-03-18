@@ -30,6 +30,9 @@
 {% endblock %}
 
 {% block extrastyle %}{{ block.super }}
+  <link rel="stylesheet" type="text/css" href="{% static "css/jquery-ui.css" %}" />
+  <link rel="stylesheet" type="text/css" href="{% static "css/jquery.fileupload-ui.css" %}" />
+  <link rel="stylesheet" type="text/css" href="{% static "css/multiupload.css" %}" />
   <link rel="stylesheet" type="text/css" href="{% static "bootstrap/css/bootstrap.min.css" %}" />
   <link rel="stylesheet" type="text/css" href="{% static "admin/css/forms.css" %}" />
   <!-- Bootstrap Image Gallery styles -->
